@@ -1,0 +1,57 @@
+provider "aws" {
+  region = "{{ region | default('ap-northeast-2') }}"
+}
+
+resource "aws_instance" "{{ app_name }}" {
+  ami           = "{{ ami | default('ami-0c9c942bd7bf113a2') }}"
+  instance_type = "{{ instance_type | default('t3.micro') }}"
+
+  tags = {
+    Name    = "{{ app_name }}"
+    Env     = "{{ env | default('production') }}"
+    ManagedBy = "pit1"
+  }
+
+  user_data = <<-EOF
+    #!/bin/bash
+    apt-get update -y
+    apt-get install -y docker.io
+    systemctl start docker
+    systemctl enable docker
+    docker pull {{ docker_image }}
+    docker run -d -p {{ port | default(8000) }}:{{ port | default(8000) }} {{ docker_image }}
+  EOF
+}
+
+resource "aws_security_group" "{{ app_name }}_sg" {
+  name = "{{ app_name }}-sg"
+
+  ingress {
+    from_port   = {{ port | default(8000) }}
+    to_port     = {{ port | default(8000) }}
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["{{ ssh_cidr | default('0.0.0.0/0') }}"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "{{ app_name }}-sg"
+  }
+}
+
+output "public_ip" {
+  value = aws_instance.{{ app_name }}.public_ip
+}

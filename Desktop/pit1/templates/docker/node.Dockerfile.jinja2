@@ -1,0 +1,18 @@
+FROM node:{{ node_version | default("20") }}-slim
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+
+{% if build_command %}
+RUN {{ build_command }}
+{% endif %}
+
+EXPOSE {{ port | default(3000) }}
+
+ENV NODE_ENV=production
+
+CMD ["{{ start_command | default('node', 'index.js') }}"]
